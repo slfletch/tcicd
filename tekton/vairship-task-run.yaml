@@ -1,0 +1,42 @@
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  name: vairship-taskrun
+  namespace: vairship
+spec:
+  taskRef:
+    name: vairship-task
+  podTemplate:
+    securityContext:
+      runAsNonRoot: false
+    hostNetwork: false
+    volumes:
+    - name: dev
+      hostPath:
+        path: /dev
+    - name: tmp
+      emptyDir:
+        medium: "Memory"
+    - name: run
+      emptyDir:
+        medium: "Memory"
+    - name: var-lib-libvirt-images
+      emptyDir: {}
+    - name: var-lib-libvirt-default
+      emptyDir: {}
+    - name: var-run-libvirt
+      emptyDir:
+        medium: "Memory"
+    - name: var-run-docker
+      emptyDir:
+        medium: "Memory"
+    - name: var-run-vairship
+      emptyDir:
+        medium: "Memory"
+    - name: sys-fs-cgroup
+      hostPath:
+        path: /sys/fs/cgroup
+    - name: dind-storage
+      emptyDir: {}
+    - name: srv
+      emptyDir: {}

@@ -1,0 +1,175 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: vairship-task
+  namespace: vairship
+spec:
+  steps:
+    - name: libvirt
+      tty: true
+      securityContext:
+        privileged: true
+      image: vairship/libvirt:2
+      command:
+        - bash
+        - -cex
+        - |
+          exec /usr/lib/systemd/systemd
+      env:
+        - name: container
+          value: docker
+      readinessProbe:
+        exec:
+          command:
+            - virsh
+            - version
+        initialDelaySeconds: 5
+        periodSeconds: 5
+      startupProbe:
+        exec:
+          command:
+            - systemctl
+            - is-active
+            - --quiet
+            - libvirtd
+        initialDelaySeconds: 5
+        periodSeconds: 5
+      volumeMounts:
+        - name: var-run-vairship
+          mountPath: /var/run/vairship/
+        - name: dev
+          mountPath: /dev
+        - name: tmp
+          mountPath: /tmp
+        - name: run
+          mountPath: /run
+        - name: var-lib-libvirt-images
+          mountPath: /var/lib/libvirt/images
+        - name: var-lib-libvirt-default
+          mountPath: /var/lib/libvirt/default
+        - name: var-run-libvirt 
+          mountPath: /var/run/libvirt
+        - name: sys-fs-cgroup
+          mountPath: /sys/fs/cgroup
+          readOnly: false
+    - name: virsh
+      image: vairship/virsh:2
+      securityContext:
+        privileged: true
+      command:
+      - bash
+      - -cex
+      - |
+        /entrypoint.sh create
+        tail -f /dev/null
+      volumeMounts:
+      - name: var-run-vairship
+        mountPath: /var/run/vairship/
+      - name: var-lib-libvirt-images
+        mountPath: /var/lib/libvirt/images
+      - name: var-lib-libvirt-default
+        mountPath: /var/lib/libvirt/default
+      - name: var-run-libvirt
+        mountPath: /var/run/libvirt
+    - name: sushy
+      image: vairship/sushy:2
+      securityContext:
+        privileged: true
+      command:
+        - bash
+        - -cex
+        - |
+          /entrypoint.sh
+          tail -f /dev/null
+      volumeMounts:
+        - name: var-run-vairship
+          mountPath: /var/run/vairship/
+        - name: var-run-libvirt
+          mountPath: /var/run/libvirt
+        - name: var-lib-libvirt-default
+          mountPath: /var/lib/libvirt/default
+    - name: dind
+      image: docker:stable-dind
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - name: var-run-vairship
+          mountPath: /var/run/vairship/
+        - name: dind-storage
+          mountPath: /var/lib/docker
+        - name: var-run-docker
+          mountPath: /var/run/
+        - name: srv
+          mountPath: /srv/
+    - name: nginx
+      image: nginx:latest
+      command:
+        - bash
+        - -cex
+        - |
+          tee /etc/nginx/nginx.conf <<'EOF'
+
+          user  nginx;
+          worker_processes  1;
+
+          error_log  /var/log/nginx/error.log warn;
+          pid        /var/run/nginx.pid;
+
+
+          events {
+              worker_connections  1024;
+          }
+
+
+          http {
+              include       /etc/nginx/mime.types;
+              default_type  application/octet-stream;
+
+              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+
+              access_log  /var/log/nginx/access.log  main;
+
+              sendfile        on;
+              #tcp_nopush     on;
+
+              keepalive_timeout  65;
+
+              #gzip  on;
+              
+              server {
+                  listen       8099;
+                  listen  [::]:8099;
+                  server_name  localhost;
+
+                  #charset koi8-r;
+                  #access_log  /var/log/nginx/host.access.log  main;
+
+                  location / {
+                      root   /srv/iso;
+                      autoindex on;
+                  }
+
+                  error_page   500 502 503 504  /50x.html;
+                  location = /50x.html {
+                      root   /usr/share/nginx/html;
+                  }
+              }
+          }
+          EOF
+          exec nginx -g 'daemon off;'
+      volumeMounts:
+        - name: srv
+          mountPath: /srv/
+    - name: runner
+      image: vairship/runner:2
+      command:
+        - /entrypoint.sh
+      volumeMounts:
+        - name: var-run-vairship
+          mountPath: /var/run/vairship/
+        - name: var-run-docker
+          mountPath: /var/run/
+        - name: srv
+          mountPath: /srv/
