@@ -55,14 +55,21 @@ sudo systemctl daemon-reload
 sudo systemctl restart helm-serve
 sudo systemctl enable helm-serve
 
+helm init --service-account helm-tiller --output yaml   | sed 's@apiVersion: extensions/v1beta1@apiVersion: apps/v1@'   | sed 's@  replicas: 1@  replicas: 1\n  selector: {"matchLabels": {"app": "helm", "name": "tiller"}}@'   | kubectl apply -f -
+
 # Remove stable repo, if present, to improve build time
 helm repo remove stable || true
 
+kubectl label nodes stacey-0 harbor=enabled
 #Install nfs-provisioner
 git clone https://github.com/slfletch/tcicd
 cd charts
 make
+
+helm upgrade --install nfs-provisioner     ./nfs-provisioner --namespace=nfs
 #Add fluxcd repo to helm
+kubectl create ns flux
+
 helm repo add fluxcd https://charts.fluxcd.io
 #Add helm operator crd
 kubectl apply -f https://raw.githubusercontent.com/fluxcd/helm-operator/1.2.0/deploy/crds.yaml
@@ -86,11 +93,11 @@ spec:
     expose:
       type: nodePort
       tls:
-        commonName: harbor
+        commonName: stacey-0.localdomain
       ingress:
         hosts:
-          core: stacey-1.localdomain
-    externalURL: https://stacey-1.localdomain:30003
+          core: stacey-0.localdomain
+    externalURL: https://stacey-0.localdomain:30003
     trivy:
       securityContext:
         runAsNonRoot: false
@@ -124,6 +131,7 @@ EOF
 
 #Install tekton
 git clone https://github.com/slfletch/pipeline
+cd pipeline
 git checkout release-v0.15.x
 
 kubectl create clusterrolebinding cluster-admin-binding \
@@ -132,9 +140,19 @@ kubectl create clusterrolebinding cluster-admin-binding \
 
 kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
 
+cd /home/ubuntu/tcicd/steps
 kubectl apply -f tekton-pv.yaml
 
 sudo apt update;sudo apt install -y gnupg
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3EFE0E0A2F2F60AA
 echo "deb http://ppa.launchpad.net/tektoncd/cli/ubuntu eoan main"|sudo tee /etc/apt/sources.list.d/tektoncd-ubuntu-cli.list
 sudo apt update && sudo apt install -y tektoncd-cli
+
+#Create role, rolebinding, serviceaccount
+
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-svc
+EOF

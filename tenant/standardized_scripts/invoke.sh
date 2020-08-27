@@ -39,7 +39,7 @@ end_stopper() {
     fi
 }
 
-# When no TENANT-output.yaml is produced, write a default "empty" one.
+# When no tenant-output.yaml is produced, write a default "empty" one.
 default_tenant_output() {
     if [ ! -n "$(find ${TENANT_OUTPUT} -name 'TENANT-output*.yaml' -print -quit)" ]; then
         warnlog "Suite did not produce any TENANT-output*.yaml. An empty TENANT-output.yaml has been supplied by the suite framework"

@@ -1,30 +1,6 @@
 # Copyright 2019 AT&T Intellectual Property.  All other rights reserved.
-ARG FROM=ubuntu:18.04
+ARG FROM=lachlanevenson/k8s-kubectl:latest
 FROM ${FROM} as build
-
-# Install packages, create user
-RUN set -ex \
-    && apt-get -qq update \
-    && apt-get -y install \
-        ca-certificates \
-        curl \
-        iproute2 \
-        iputils-ping \
-        net-tools \
-        netbase \
-        netcat-openbsd \
-        traceroute \
-        libcap2-bin \
-        --no-install-recommends \
-    && apt-get autoremove -yqq --purge \
-    && apt-get clean \
-    && rm -rf \
-        /var/lib/apt/lists/* \
-        /tmp/* \
-        /var/tmp/* \
-        /usr/share/man \
-        /usr/share/doc \
-        /usr/share/doc-base
 
 ARG CTX_BASE="."
 COPY "${CTX_BASE}"/"bin_scripts/*" "/usr/local/bin/"
@@ -62,24 +38,22 @@ ENV SUITE_FAILURE_MESSAGE_FILE="${TENANT_OUTPUT}/suite-failure-message.txt"
 ENV REGISTRY="stacey-1.localdomain:30003"
 ENV TENANT_STOPPER_PORT="60106"
 
-RUN useradd -m -u 10000 -U -s /bin/bash "${TENANT_USER}" \
-    && mkdir -p "${TENANT_HOME}" \
+#RUN useradd -m -u 10000 -U -s /bin/bash "${TENANT_USER}" \
+RUN mkdir -p "${TENANT_HOME}" \
     && mkdir -p "${TENANT_INPUT}" \
     && mkdir -p "${TENANT_OUTPUT}" \
     && mkdir -p "${TENANT_OUTPUT_DIAGNOSTICS}"
 
 COPY "${CTX_BASE}"/"standardized_scripts/*.sh" "${TENANT_HOME}/"
 
-RUN chown -R "${TENANT_USER}": "${TENANT_HOME}" \
-    && chmod +x "${TENANT_HOME}/invoke.sh" \
+#RUN chown -R "${TENANT_USER}": "${TENANT_HOME}" \
+RUN     chmod +x "${TENANT_HOME}/invoke.sh" \
     && chmod +x "${TENANT_HOME}/run.sh" \
     && chmod +x "${TENANT_HOME}/setup.sh" \
     && chmod +x "${TENANT_HOME}/teardown.sh" \
     && chmod +x "${TENANT_HOME}/stop.sh" \
     && chmod +x "${TENANT_HOME}/stop_listener.sh" \
     && chmod +x "${TENANT_HOME}/finally.sh" \
-    && chown "${TENANT_USER}": "${TENANT_INPUT}" \
-    && chown "${TENANT_USER}": "${TENANT_OUTPUT}" \
-    && chown "${TENANT_USER}": "${TENANT_OUTPUT_DIAGNOSTICS}"\
-    && setcap 'cap_net_raw=+ep' $(which ping) \
-    && setcap 'cap_net_raw=+ep' $(readlink -f /usr/sbin/traceroute)
+  #  && chown "${TENANT_USER}": "${TENANT_INPUT}" \
+  #  && chown "${TENANT_USER}": "${TENANT_OUTPUT}" \
+  #  && chown "${TENANT_USER}": "${TENANT_OUTPUT_DIAGNOSTICS}"
