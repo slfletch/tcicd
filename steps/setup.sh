@@ -120,7 +120,7 @@ cat <<EOF | kubectl apply -f -
 apiVersion: helm.fluxcd.io/v1
 kind: HelmRelease
 metadata:
-  name: nfs-provisioner
+  name: rabbitmqhe
   namespace: harbor
 spec:
   chart:
@@ -156,3 +156,33 @@ kind: ServiceAccount
 metadata:
   name: demo-svc
 EOF
+
+#Install Tekton Triggers (optional)
+kubectl apply --filename https://storage.googleapis.com/tekton-releases/triggers/latest/release.yaml
+#Install tekton dashboard
+kubectl apply --filename https://storage.googleapis.com/tekton-releases/dashboard/latest/tekton-dashboard-release.yaml
+
+#Setup ingress
+DASHBOARD_URL=stacey-0.localdomain
+kubectl apply -n tekton-pipelines -f - <<EOF
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: tekton-dashboard
+  namespace: tekton-pipelines
+spec:
+  rules:
+  - host: '*'
+    http:
+      paths:
+      - backend:
+          serviceName: tekton-dashboard
+          servicePort: 9097
+EOF
+#Install nginx ingress - update hostNetwork: true
+
+695 git clone https://github.com/openstack/openstack-helm-infra.git
+696 cd openstack-helm-infra/
+697 mkdir -p ./rabbitmq/charts
+698 cp -rav ./helm-toolkit ./rabbitmq/charts/
+699 helm package ./rabbitmq

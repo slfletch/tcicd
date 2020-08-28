@@ -6,7 +6,7 @@ metadata:
 rules:
 - apiGroups: ["helm.fluxcd.io"] # "" indicates the core API group
   resources: ["helmreleases"]
-  verbs: ["get", "create","watch", "list","describe"]
+  verbs: ["get", "create", "apply", "patch", "watch", "list","describe"]
 - apiGroups: [""] # "" indicates the core API group
   resources: ["pods"]
   verbs: ["get", "watch", "list","describe"]
